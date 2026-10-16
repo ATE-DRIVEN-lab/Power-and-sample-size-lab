@@ -1,0 +1,958 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Power and Sample Size Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: a lab bench. Controls on the left, the live sampling-distribution chart on the right,
+   then a planning bench (solver + two curves), lever cards, a simulator, and plain-spoken cautions. */
+:root{
+  --plane:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --track:#ebeae4;
+  --s1:#2a78d6; --s2:#eb6834; --on-accent:#ffffff; --accent-ink:#1c5cab;
+  --s1-soft:rgba(42,120,214,.30); --s2-soft:rgba(235,104,52,.70);
+  --good:#006300; --warn:#fab219; --focus:#2a78d6;
+  --font-sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --plane:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --track:#2a2a28;
+    --s1:#3987e5; --s2:#d95926; --on-accent:#0b0b0b; --accent-ink:#6da7ec;
+    --s1-soft:rgba(57,135,229,.34); --s2-soft:rgba(217,89,38,.78);
+    --good:#0ca30c; --focus:#6da7ec; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --plane:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --track:#2a2a28;
+  --s1:#3987e5; --s2:#d95926; --on-accent:#0b0b0b; --accent-ink:#6da7ec;
+  --s1-soft:rgba(57,135,229,.34); --s2-soft:rgba(217,89,38,.78);
+  --good:#0ca30c; --focus:#6da7ec; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--plane); color:var(--ink); font-family:var(--font-sans); font-size:15px; line-height:1.55;
+  padding-block:28px 64px;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.page{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:52px}
+h1,h2,h3{font-family:var(--font-sans);text-wrap:balance}
+h1{font-size:clamp(28px,4.6vw,42px);line-height:1.08;letter-spacing:-.02em;font-weight:600;margin:0 0 14px}
+h2{font-size:22px;line-height:1.2;letter-spacing:-.01em;font-weight:600;margin:0 0 6px}
+h3{font-size:15px;font-weight:600;margin:0}
+p{margin:0}
+.kicker{font:500 12px/1 var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);margin:0 0 16px}
+.lede{max-width:66ch;color:var(--ink2);font-size:17px;line-height:1.55}
+.sechead{margin-bottom:18px}
+.sechead p{color:var(--ink2);max-width:70ch}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;min-width:0}
+.lab,.plan{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.lab,.plan{grid-template-columns:minmax(0,1fr)}}
+
+/* controls */
+.controls{display:flex;flex-direction:column;gap:20px}
+.field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.frow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+label,.lbl{font-size:13px;font-weight:500;color:var(--ink)}
+output,.val{font:500 14px var(--font-mono);font-variant-numeric:tabular-nums}
+.hint{font-size:12.5px;color:var(--ink2);line-height:1.45}
+.hint b{font-family:var(--font-mono);font-weight:500;color:var(--ink)}
+input[type=range]{width:100%;margin:2px 0;accent-color:var(--s1);height:22px}
+select,input[type=number]{
+  font:14px var(--font-sans);color:var(--ink);background:var(--surface);border:1px solid var(--axis);
+  border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input[type=number]{width:92px;font-family:var(--font-mono);text-align:right}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--axis);border-radius:7px;overflow:hidden;align-self:flex-start;max-width:100%}
+.seg button{font:500 13px var(--font-mono);color:var(--ink);background:transparent;border:0;border-right:1px solid var(--axis);padding:7px 11px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--track)}
+.seg button[aria-pressed=true]{background:var(--s1);color:var(--on-accent)}
+.seg.txt button{font-family:var(--font-sans)}
+.ghost{font:500 13px var(--font-sans);color:var(--accent-ink);background:transparent;border:1px solid var(--axis);border-radius:7px;padding:8px 12px;cursor:pointer;align-self:flex-start}
+.ghost:hover{background:var(--track)}
+.solid{font:500 13px var(--font-sans);color:var(--on-accent);background:var(--s1);border:1px solid var(--s1);border-radius:7px;padding:8px 14px;cursor:pointer}
+.solid:hover{filter:brightness(1.08)}
+.solid:disabled{opacity:.45;cursor:default}
+
+/* stage */
+.stage{display:flex;flex-direction:column;gap:14px}
+.readout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.75fr);gap:18px;align-items:center}
+@media (max-width:620px){.readout{grid-template-columns:minmax(0,1fr)}}
+.hero .k{font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.hero .v{display:block;font-size:54px;line-height:1.05;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.meter{position:relative;height:8px;border-radius:4px;background:var(--track);margin:8px 0 10px}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--s1);transition:width .15s}
+.meter b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;border:1px solid var(--axis);border-radius:999px;padding:3px 10px 3px 7px}
+.chip svg{flex:none}
+.mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:0}
+.mini div{min-width:0}
+.mini dt{font-size:12px;color:var(--ink2);line-height:1.3}
+.mini dd{margin:2px 0 0;font:500 17px var(--font-mono);font-variant-numeric:tabular-nums}
+.chart{position:relative;width:100%;min-width:0}
+.chart svg{display:block;max-width:100%;overflow:visible}
+.chart text{font-family:var(--font-mono)}
+.chart .tk{fill:var(--ink2);font-size:11px}
+.chart .tk2{fill:var(--muted);font-size:10.5px}
+.chart .axt{fill:var(--ink2);font-size:11.5px;font-family:var(--font-sans)}
+.chart .gl{stroke:var(--grid);stroke-width:1}
+.chart .ax{stroke:var(--axis);stroke-width:1}
+.chart .h0{fill:none;stroke:var(--ink2);stroke-width:2}
+.chart .h1{fill:none;stroke:var(--s1);stroke-width:2.25}
+.chart .a-alpha{fill:var(--s2-soft)}
+.chart .a-power{fill:var(--s1-soft)}
+.chart .a-beta{fill:url(#hatch)}
+.chart .hatch-line{stroke:var(--muted)}
+.chart .crit{stroke:var(--ink);stroke-width:1.25;stroke-dasharray:4 3}
+.chart .crit-t{fill:var(--ink);font-size:11px;font-weight:500}
+.chart .curve{fill:none;stroke:var(--s1);stroke-width:2.25;stroke-linejoin:round}
+.chart .goal{stroke:var(--ink2);stroke-width:1;stroke-dasharray:4 3}
+.chart .lab-h0{fill:var(--ink2);font-size:13px;font-weight:500}
+.chart .lab-h1{fill:var(--accent-ink);font-size:13px;font-weight:500}
+.chart .mk-lab{fill:var(--ink);font-size:11.5px;font-weight:500}
+.chart .guide{stroke:var(--ink2);stroke-width:1;stroke-dasharray:2 3}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);border-radius:6px;padding:7px 9px;font:12px/1.45 var(--font-mono);white-space:nowrap;z-index:5;top:4px}
+.tip b{font-weight:500}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--ink2)}
+.legend li{display:flex;align-items:center;gap:7px}
+.legend b{font:500 12.5px var(--font-mono);color:var(--ink)}
+.sw{width:18px;height:12px;border-radius:2px;flex:none;border:1px solid transparent}
+.sw.l0{height:0;border-top:2px solid var(--ink2);border-radius:0}
+.sw.l1{height:0;border-top:2.25px solid var(--s1);border-radius:0}
+.sw.a{background:var(--s2-soft);border-color:var(--s2)}
+.sw.p{background:var(--s1-soft);border-color:var(--s1)}
+.sw.b{background:repeating-linear-gradient(45deg,var(--muted) 0 1.5px,transparent 1.5px 5px);border-color:var(--muted)}
+.caption{font-size:12.5px;color:var(--ink2);max-width:80ch}
+.reading{font-size:15px;line-height:1.6;border-top:1px solid var(--border);padding-top:14px;max-width:80ch}
+.reading b{font-weight:600}
+
+/* plan */
+.solver{display:flex;flex-direction:column;gap:16px}
+.big{font-size:44px;line-height:1;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat{display:flex;flex-direction:column;gap:3px}
+.stat .k{font-size:12px;color:var(--ink2)}
+.stat .n{font:500 16px var(--font-mono);font-variant-numeric:tabular-nums}
+.stats2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.rule{border:0;border-top:1px solid var(--border);margin:0}
+.chartpair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.chartpair h3{margin-bottom:2px}
+.chartpair .sub{font-size:12.5px;color:var(--ink2);margin-bottom:6px}
+details{margin-top:14px;font-size:13px}
+summary{cursor:pointer;color:var(--accent-ink);font-weight:500}
+.tablewrap{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;font:13px var(--font-mono);font-variant-numeric:tabular-nums;min-width:320px}
+th,td{padding:5px 14px 5px 0;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+th{font:500 12px var(--font-sans);color:var(--ink2)}
+th:first-child,td:first-child{text-align:left}
+tr.hl td{font-weight:500;color:var(--accent-ink)}
+
+/* levers */
+.levers{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.lever{text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:8px;min-width:0}
+.lever:hover{border-color:var(--s1)}
+.lever h3{font-size:14px}
+.lever .d{font-size:12.5px;color:var(--ink2);line-height:1.45}
+.lever .r{margin-top:auto;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font:500 15px var(--font-mono);font-variant-numeric:tabular-nums}
+.lever .up{color:var(--good)}
+.lever .dn{color:var(--ink2)}
+.lever .go{font-size:12px;color:var(--accent-ink);font-family:var(--font-sans);font-weight:500}
+
+/* sim */
+.sim{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:860px){.sim{grid-template-columns:minmax(0,1fr)}}
+.simbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.simbar .gap{flex:1}
+.simnote{font-size:13px;color:var(--ink2)}
+.runline{font-size:14px;min-height:44px}
+.runline b{font-family:var(--font-mono);font-weight:500}
+.empty{font-size:13px;color:var(--ink2);border:1px dashed var(--axis);border-radius:8px;padding:28px 16px;text-align:center}
+.ledger{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;max-width:340px}
+.ledger i{aspect-ratio:1;border-radius:3px;border:1.5px solid var(--axis);display:block}
+.ledger i.y{background:var(--s1);border-color:var(--s1)}
+.ledger i.n{border-color:var(--ink2);background:transparent}
+.tally{font-size:14px;line-height:1.55;display:flex;flex-direction:column;gap:6px}
+.tally b{font-family:var(--font-mono);font-weight:500}
+.sim h3{margin-bottom:8px}
+.sim .col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sim .chart text.dim{fill:var(--ink2)}
+.pt-c{fill:var(--ink2);fill-opacity:.55}
+.pt-t{fill:var(--s1);fill-opacity:.55}
+.mean-c{stroke:var(--ink);stroke-width:3;stroke-linecap:round}
+.mean-t{stroke:var(--accent-ink);stroke-width:3;stroke-linecap:round}
+
+/* notes */
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px 36px}
+.notes div{max-width:56ch}
+.notes h3{margin-bottom:4px}
+.notes p{color:var(--ink2);font-size:14px}
+.foot{font-size:12.5px;color:var(--ink2);border-top:1px solid var(--border);padding-top:16px;max-width:90ch}
+@media (prefers-reduced-motion:reduce){.meter i{transition:none}}
+</style>
+
+<main class="page">
+  <header>
+    <p class="kicker">Experimental design · comparing two group means</p>
+    <h1>Power and Sample Size Lab</h1>
+    <p class="lede">Power is the probability that an experiment rejects the null hypothesis when a specific true difference exists. It is set by four inputs: sample size, the size of the true difference, the variability of the outcome, and the significance level. Move them and watch the two sampling distributions slide, overlap and separate.</p>
+  </header>
+
+  <section aria-labelledby="h-setup">
+    <div class="sechead">
+      <h2 id="h-setup">Set up the experiment</h2>
+      <p>A two-arm study with equal group sizes, analysed with a two-sample t-test. The scenarios use illustrative numbers, not published estimates.</p>
+    </div>
+    <div class="lab">
+      <form class="panel controls" onsubmit="return false" aria-label="Experiment parameters">
+        <div class="field">
+          <label for="preset">Example scenario</label>
+          <select id="preset"></select>
+          <p class="hint" id="presetHint"></p>
+        </div>
+        <div class="field">
+          <div class="frow"><label for="nRange">Group size, n per group</label><input id="nNum" type="number" min="3" max="5000" step="1" inputmode="numeric" aria-label="n per group"></div>
+          <input id="nRange" type="range" min="0" max="1000" step="1">
+          <p class="hint" id="nHint"></p>
+        </div>
+        <div class="field">
+          <div class="frow"><label for="dRange">True difference between groups, Δ</label><output id="dOut" for="dRange"></output></div>
+          <input id="dRange" type="range">
+          <p class="hint">Standardized effect d = Δ / σ = <b id="dStd"></b> <span id="dTag"></span></p>
+        </div>
+        <div class="field">
+          <div class="frow"><label for="sRange">Standard deviation within a group, σ</label><output id="sOut" for="sRange"></output></div>
+          <input id="sRange" type="range">
+          <p class="hint">Person-to-person (or animal-to-animal) spread of the outcome.</p>
+        </div>
+        <div class="field">
+          <span class="lbl" id="alphaLbl">Significance level, α</span>
+          <div class="seg" id="alphaSeg" role="group" aria-labelledby="alphaLbl">
+            <button type="button" data-v="0.001" aria-pressed="false">0.001</button>
+            <button type="button" data-v="0.01" aria-pressed="false">0.01</button>
+            <button type="button" data-v="0.05" aria-pressed="true">0.05</button>
+            <button type="button" data-v="0.1" aria-pressed="false">0.10</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl" id="tailLbl">Alternative hypothesis</span>
+          <div class="seg txt" id="tailSeg" role="group" aria-labelledby="tailLbl">
+            <button type="button" data-v="2" aria-pressed="true">Two-sided</button>
+            <button type="button" data-v="1" aria-pressed="false">One-sided</button>
+          </div>
+        </div>
+        <button type="button" class="ghost" id="resetBtn">Reset to scenario values</button>
+      </form>
+
+      <div class="panel stage">
+        <div class="readout">
+          <div class="hero">
+            <span class="k">Power</span>
+            <span class="v" id="powerV">–</span>
+            <div class="meter" aria-hidden="true"><i id="meterFill"></i><b id="meterGoal"></b></div>
+            <span class="chip" id="goalChip"></span>
+          </div>
+          <dl class="mini">
+            <div><dt>Miss rate, β (Type II error)</dt><dd id="betaV">–</dd></div>
+            <div><dt>False-positive rate, α (Type I error)</dt><dd id="alphaV">–</dd></div>
+            <div><dt id="critK">Critical t</dt><dd id="critV">–</dd></div>
+            <div><dt>Standard error of the difference</dt><dd id="seV">–</dd></div>
+          </dl>
+        </div>
+        <div id="distChart" class="chart"></div>
+        <ul class="legend" id="distLegend">
+          <li><span class="sw l0"></span>H₀: no true difference</li>
+          <li><span class="sw l1"></span>H₁: true difference Δ</li>
+          <li><span class="sw a"></span>α <b id="lgAlpha"></b></li>
+          <li><span class="sw b"></span>β <b id="lgBeta"></b></li>
+          <li><span class="sw p"></span>Power <b id="lgPower"></b></li>
+        </ul>
+        <p class="caption" id="caption"></p>
+        <p class="reading" id="reading"></p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-plan">
+    <div class="sechead">
+      <h2 id="h-plan">Plan the sample size</h2>
+      <p>Choose the power you want and the solver returns the smallest n per group that reaches it, given the Δ, σ, α and sidedness above. The curves show how sensitive that answer is.</p>
+    </div>
+    <div class="plan">
+      <div class="panel solver">
+        <div class="field">
+          <span class="lbl" id="tgtLbl">Target power</span>
+          <div class="seg" id="targetSeg" role="group" aria-labelledby="tgtLbl">
+            <button type="button" data-v="0.8" aria-pressed="true">80%</button>
+            <button type="button" data-v="0.9" aria-pressed="false">90%</button>
+            <button type="button" data-v="0.95" aria-pressed="false">95%</button>
+          </div>
+        </div>
+        <div class="stat">
+          <span class="k">Required n per group</span>
+          <span class="big" id="reqN">–</span>
+          <span class="hint" id="reqNote"></span>
+        </div>
+        <div class="stats2">
+          <div class="stat"><span class="k">Total N, both groups</span><span class="n" id="reqTotal">–</span></div>
+          <div class="stat"><span class="k">Power at that n</span><span class="n" id="reqAch">–</span></div>
+        </div>
+        <hr class="rule">
+        <div class="field">
+          <div class="frow"><label for="dropNum">Expected dropout</label><span class="val"><input id="dropNum" type="number" min="0" max="60" step="1" value="10" inputmode="numeric"> %</span></div>
+          <p class="hint" id="enrolNote"></p>
+        </div>
+        <hr class="rule">
+        <div class="stat">
+          <span class="k">Smallest true difference detectable at your current n</span>
+          <span class="n" id="mdeV">–</span>
+          <span class="hint" id="mdeNote"></span>
+        </div>
+        <button type="button" class="solid" id="useN">Use the required n</button>
+      </div>
+
+      <div class="panel">
+        <div class="chartpair">
+          <div>
+            <h3>Power against sample size</h3>
+            <p class="sub">Returns diminish: each extra participant buys less power than the last.</p>
+            <div id="chartN" class="chart"></div>
+          </div>
+          <div>
+            <h3>Power against true difference</h3>
+            <p class="sub">Small effects need far more participants than large ones.</p>
+            <div id="chartD" class="chart"></div>
+          </div>
+        </div>
+        <details>
+          <summary>View the power curve as a table</summary>
+          <div class="tablewrap"><table id="powTable"></table></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-lev">
+    <div class="sechead">
+      <h2 id="h-lev">Pull each lever</h2>
+      <p>Each card changes one input from where you are now and shows the resulting power. Selecting a card applies the change.</p>
+    </div>
+    <div class="levers" id="levers"></div>
+  </section>
+
+  <section aria-labelledby="h-sim">
+    <div class="sechead">
+      <h2 id="h-sim">Run it as a real experiment</h2>
+      <p>Each run draws two groups of n from normal distributions with the Δ and σ you set, then applies the t-test. One run is noisy. Many runs show what power means: the long-run share of experiments that reach significance.</p>
+    </div>
+    <div class="panel">
+      <div class="simbar">
+        <div class="seg txt" id="worldSeg" role="group" aria-label="What is true in the simulated world">
+          <button type="button" data-v="effect" aria-pressed="true">A real difference exists</button>
+          <button type="button" data-v="null" aria-pressed="false">No difference (H₀ true)</button>
+        </div>
+        <span class="gap"></span>
+        <button type="button" class="solid" id="run1">Run 1</button>
+        <button type="button" class="ghost" id="run100">Run 100</button>
+        <button type="button" class="ghost" id="run1000">Run 1,000</button>
+        <button type="button" class="ghost" id="clearSim">Clear</button>
+      </div>
+      <div class="sim">
+        <div class="col">
+          <div>
+            <h3>The latest experiment</h3>
+            <p class="runline" id="runLine"></p>
+          </div>
+          <div id="strip" class="chart"></div>
+        </div>
+        <div class="col">
+          <div>
+            <h3>Last 100 experiments</h3>
+            <div class="ledger" id="ledger" aria-hidden="true"></div>
+            <ul class="legend" style="margin-top:10px">
+              <li><span class="sw p" style="background:var(--s1);border-color:var(--s1)"></span>Significant</li>
+              <li><span class="sw" style="border:1.5px solid var(--ink2)"></span>Not significant</li>
+            </ul>
+          </div>
+          <div class="tally" id="tally"></div>
+          <div id="conv" class="chart"></div>
+        </div>
+      </div>
+      <p class="simnote" style="margin-top:14px">The tally clears whenever you change a parameter, because the old runs no longer describe the current design.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-cav">
+    <div class="sechead">
+      <h2 id="h-cav">What power does and does not tell you</h2>
+    </div>
+    <div class="notes">
+      <div><h3>Power belongs to an assumed effect</h3><p>"80% power" means nothing until a true difference is attached to it. Use the smallest difference worth detecting, not the difference you hope to find.</p></div>
+      <div><h3>Observed power adds nothing</h3><p>Power computed from the estimate you just obtained is a one-to-one function of the p-value. After the data are in, report the confidence interval instead.</p></div>
+      <div><h3>A null result from a weak design is not evidence of no effect</h3><p>At 50% power, half of real effects of the assumed size go undetected. Failing to reject H₀ is not the same as accepting it.</p></div>
+      <div><h3>Low power also exaggerates the effects that do reach significance</h3><p>Run the simulation with a low-powered design: significant experiments overestimate Δ on average, because only large chance deviations clear the threshold. This is a Type M (magnitude) error.</p></div>
+      <div><h3>α is not the chance that a significant finding is false</h3><p>It is the false-positive rate when H₀ is true. The share of significant results that are false also depends on power and on how many of the tested hypotheses are truly null.</p></div>
+      <div><h3>The inputs are estimates</h3><p>A σ from a small pilot or a single paper is itself uncertain. Move σ and Δ here to see how the required n shifts, and plan with a conservative σ. Binary, survival, clustered or repeated-measures outcomes need different formulas.</p></div>
+    </div>
+  </section>
+
+  <p class="foot">Method: Student two-sample t-test, equal n and equal variances, normally distributed outcomes. Power is computed exactly from the noncentral t distribution by numerical integration, not by the normal approximation. The curves above are the t distributions rescaled by the standard error σ√(2/n), so the horizontal axis is the observed difference in measurement units and the second axis row gives the matching t. In a real experiment the SD is estimated from the data, so the cutoff in raw units varies slightly between runs.</p>
+</main>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+
+/*MATH-START*/
+function lgamma(x){
+  var c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  var y=x,tmp=x+5.5; tmp-=(x+0.5)*Math.log(tmp); var ser=1.000000000190015;
+  for(var j=0;j<6;j++){y+=1;ser+=c[j]/y;}
+  return -tmp+Math.log(2.5066282746310005*ser/x);
+}
+function erfc(x){
+  var z=Math.abs(x),t=1/(1+0.5*z);
+  var r=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+t*(-0.82215223+t*0.17087277)))))))));
+  return x>=0?r:2-r;
+}
+function Q(z){return 0.5*erfc(z/Math.SQRT2);}
+function betacf(a,b,x){
+  var FPMIN=1e-300,qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;
+  if(Math.abs(d)<FPMIN)d=FPMIN; d=1/d; var h=d;
+  for(var m=1;m<=300;m++){
+    var m2=2*m,aa=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa*d; if(Math.abs(d)<FPMIN)d=FPMIN; c=1+aa/c; if(Math.abs(c)<FPMIN)c=FPMIN; d=1/d; h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa*d; if(Math.abs(d)<FPMIN)d=FPMIN; c=1+aa/c; if(Math.abs(c)<FPMIN)c=FPMIN; d=1/d;
+    var del=d*c; h*=del; if(Math.abs(del-1)<3e-14)break;
+  }
+  return h;
+}
+function betai(a,b,x){
+  if(x<=0)return 0; if(x>=1)return 1;
+  var bt=Math.exp(lgamma(a+b)-lgamma(a)-lgamma(b)+a*Math.log(x)+b*Math.log(1-x));
+  if(x<(a+1)/(a+b+2))return bt*betacf(a,b,x)/a;
+  return 1-bt*betacf(b,a,1-x)/b;
+}
+var tcCache=new Map();
+function tcrit(nu,alpha,tails){
+  var key=nu+'|'+alpha+'|'+tails; if(tcCache.has(key))return tcCache.get(key);
+  var target=tails===2?alpha:2*alpha,lo=0,hi=1e4;
+  for(var i=0;i<80;i++){var mid=(lo+hi)/2,p=betai(nu/2,0.5,nu/(nu+mid*mid)); if(p>target)lo=mid; else hi=mid;}
+  var v=(lo+hi)/2; tcCache.set(key,v); return v;
+}
+var gridCache=new Map();
+function grid(nu){
+  if(gridCache.has(nu))return gridCache.get(nu);
+  var N=240,sd=1/Math.sqrt(2*nu),lo=Math.max(1e-6,1-7*sd),hi=1+10*sd,h=(hi-lo)/N,s=[],w=[],tot=0;
+  for(var i=0;i<=N;i++){
+    var x=lo+i*h,lf=Math.LN2+(nu/2)*Math.log(nu/2)-lgamma(nu/2)+(nu-1)*Math.log(x)-nu*x*x/2;
+    var coef=(i===0||i===N)?1:(i%2?4:2),v=coef*Math.exp(lf); s.push(x); w.push(v); tot+=v;
+  }
+  for(var j=0;j<w.length;j++)w[j]/=tot;
+  var g={s:s,w:w}; gridCache.set(nu,g); return g;
+}
+function pdf0(t,nu){
+  return Math.exp(lgamma((nu+1)/2)-lgamma(nu/2)-0.5*Math.log(nu*Math.PI)-((nu+1)/2)*Math.log(1+t*t/nu));
+}
+function pdf1(t,nc,nu){
+  var g=grid(nu),a=0;
+  for(var i=0;i<g.s.length;i++){var x=t*g.s[i]-nc; a+=g.w[i]*g.s[i]*Math.exp(-0.5*x*x);}
+  return a*0.3989422804014327;
+}
+function power(n,delta,sigma,alpha,tails){
+  var nu=2*n-2,tc=tcrit(nu,alpha,tails),nc=(delta/sigma)*Math.sqrt(n/2),g=grid(nu),up=0,lo=0;
+  for(var i=0;i<g.s.length;i++){
+    up+=g.w[i]*Q(tc*g.s[i]-nc);
+    if(tails===2)lo+=g.w[i]*Q(tc*g.s[i]+nc);
+  }
+  return Math.min(1,up+lo);
+}
+function requiredN(delta,sigma,alpha,tails,target){
+  if(!(delta>0))return null;
+  if(power(3,delta,sigma,alpha,tails)>=target)return 3;
+  var hi=6;
+  while(power(hi,delta,sigma,alpha,tails)<target){hi*=2; if(hi>400000)return Infinity;}
+  var lo=Math.floor(hi/2);
+  while(hi-lo>1){var mid=Math.floor((lo+hi)/2); if(power(mid,delta,sigma,alpha,tails)>=target)hi=mid; else lo=mid;}
+  return hi;
+}
+function mde(n,sigma,alpha,tails,target){
+  var lo=0,hi=12*sigma;
+  if(power(n,hi,sigma,alpha,tails)<target)return Infinity;
+  for(var i=0;i<45;i++){var mid=(lo+hi)/2; if(power(n,mid,sigma,alpha,tails)>=target)hi=mid; else lo=mid;}
+  return hi;
+}
+/*MATH-END*/
+
+/* ---------- scenarios ---------- */
+var PRESETS={
+  bp:{label:'Blood pressure trial',outcome:'Reduction in systolic blood pressure, drug vs placebo',unit:'mmHg',dp:1,delta:6,sigma:12,n:40,dMax:20,dStep:0.5,sMin:4,sMax:30,sStep:0.5},
+  hba1c:{label:'HbA1c in type 2 diabetes',outcome:'Change in HbA1c, new drug vs standard care',unit:'% points',dp:2,delta:0.4,sigma:1,n:50,dMax:1.5,dStep:0.05,sMin:0.4,sMax:2.5,sStep:0.05},
+  mouse:{label:'Mouse rotarod test',outcome:'Latency to fall, compound vs vehicle',unit:'s',dp:0,delta:30,sigma:25,n:8,dMax:60,dStep:1,sMin:10,sMax:80,sStep:1},
+  std:{label:'Generic, in SD units',outcome:'Any continuous outcome, standardized',unit:'SD',dp:2,delta:0.5,sigma:1,n:40,dMax:2,dStep:0.05,sMin:0.25,sMax:2.5,sStep:0.05}
+};
+var S={preset:'bp',n:40,delta:6,sigma:12,alpha:0.05,tails:2,target:0.8,dropout:10,world:'effect'};
+function P(){return PRESETS[S.preset];}
+function norm(o){
+  var p=PRESETS[o.preset];
+  o.n=Math.max(3,Math.min(5000,Math.round(+o.n)||3));
+  o.delta=Math.max(0,Math.min(p.dMax,Math.round(o.delta/p.dStep)*p.dStep)); o.delta=+o.delta.toFixed(6);
+  o.sigma=Math.max(p.sMin,Math.min(p.sMax,Math.round(o.sigma/p.sStep)*p.sStep)); o.sigma=+o.sigma.toFixed(6);
+  return o;
+}
+function nToSlider(n){return Math.round(1000*Math.log(Math.min(1000,n)/3)/Math.log(1000/3));}
+function sliderToN(v){return Math.round(3*Math.pow(1000/3,v/1000));}
+
+/* ---------- formatting ---------- */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function pct(p){
+  if(p>0.9995)return '>99.9%'; if(p<0.0005)return '<0.1%';
+  return (p<0.01||p>0.99)?(p*100).toFixed(1)+'%':(p*100).toFixed(0)+'%';
+}
+function fd(v){return v.toFixed(P().dp);}
+function sig3(v){return String(Number(v.toPrecision(3))).replace('-','−');}
+function mn(s){return String(s).replace('-','−');}
+function fmtP(p){return p<0.001?'<0.001':p.toFixed(3);}
+function fmtInt(v){return Number.isFinite(v)?v.toLocaleString('en-US'):'–';}
+function niceStep(raw){var p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p;}
+function ticks(a,b,approx){
+  var st=niceStep((b-a)/approx),out=[];
+  for(var v=Math.ceil(a/st-1e-9)*st;v<=b+1e-9;v+=st)out.push(+v.toFixed(10));
+  return out;
+}
+function dTagText(d){
+  if(d<0.01)return '(no difference)';
+  if(d<0.2)return '(below Cohen’s “small”)';
+  if(d<0.5)return '(about “small” by Cohen’s convention)';
+  if(d<0.8)return '(about “medium” by Cohen’s convention)';
+  return '(“large” by Cohen’s convention)';
+}
+
+/* ---------- controls ---------- */
+var sel=$('#preset');
+Object.keys(PRESETS).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=PRESETS[k].label;sel.appendChild(o);});
+function applyPresetRanges(){
+  var p=P(),d=$('#dRange'),s=$('#sRange');
+  d.min=0;d.max=p.dMax;d.step=p.dStep; s.min=p.sMin;s.max=p.sMax;s.step=p.sStep;
+}
+function sync(skip){
+  var p=P();
+  sel.value=S.preset;
+  $('#presetHint').textContent=p.outcome+'. Units: '+p.unit+'.';
+  if(skip!=='n'){$('#nRange').value=nToSlider(S.n);}
+  if(skip!=='nNum'){$('#nNum').value=S.n;}
+  $('#nHint').textContent='Total N = '+fmtInt(2*S.n)+' participants across both groups';
+  if(skip!=='d')$('#dRange').value=S.delta;
+  if(skip!=='s')$('#sRange').value=S.sigma;
+  $('#dOut').textContent=fd(S.delta)+' '+p.unit;
+  $('#sOut').textContent=fd(S.sigma)+' '+p.unit;
+  var d=S.delta/S.sigma;
+  $('#dStd').textContent=d.toFixed(2);
+  $('#dTag').textContent=dTagText(d);
+  document.querySelectorAll('#alphaSeg button').forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.v===S.alpha));});
+  document.querySelectorAll('#tailSeg button').forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.v===S.tails));});
+  document.querySelectorAll('#targetSeg button').forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.v===S.target));});
+  document.querySelectorAll('#worldSeg button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.world));});
+}
+function setState(patch,skip,keepSim){
+  var next=Object.assign({},S,patch); norm(next);
+  var changed=['preset','n','delta','sigma','alpha','tails'].some(function(k){return next[k]!==S[k];});
+  Object.assign(S,next);
+  if(S.preset!==sel.dataset.last){applyPresetRanges();sel.dataset.last=S.preset;}
+  if(changed&&!keepSim)simReset();
+  sync(skip); render();
+}
+sel.addEventListener('change',function(){var p=PRESETS[sel.value];setState({preset:sel.value,n:p.n,delta:p.delta,sigma:p.sigma});});
+$('#resetBtn').addEventListener('click',function(){var p=P();setState({n:p.n,delta:p.delta,sigma:p.sigma,alpha:0.05,tails:2});});
+$('#nRange').addEventListener('input',function(e){setState({n:sliderToN(+e.target.value)},'n');});
+$('#nNum').addEventListener('change',function(e){setState({n:+e.target.value});});
+$('#nNum').addEventListener('input',function(e){var v=+e.target.value;if(v>=3&&v<=5000)setState({n:v},'nNum');});
+$('#dRange').addEventListener('input',function(e){setState({delta:+e.target.value},'d');});
+$('#sRange').addEventListener('input',function(e){setState({sigma:+e.target.value},'s');});
+$('#alphaSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setState({alpha:+b.dataset.v});});
+$('#tailSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setState({tails:+b.dataset.v});});
+$('#targetSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setState({target:+b.dataset.v},null,true);});
+$('#worldSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(b){S.world=b.dataset.v;simReset();sync();renderSim();}});
+$('#dropNum').addEventListener('input',function(e){var v=+e.target.value;S.dropout=Math.max(0,Math.min(60,isNaN(v)?0:v));renderSolver();});
+$('#useN').addEventListener('click',function(){var r=requiredN(S.delta,S.sigma,S.alpha,S.tails,S.target);if(r&&Number.isFinite(r))setState({n:r});});
+
+/* ---------- generic hover helper ---------- */
+function placeTip(el,tip,px){
+  tip.hidden=false;
+  var w=tip.offsetWidth,W=el.clientWidth;
+  var left=px+14; if(left+w>W)left=px-w-14; if(left<0)left=0;
+  tip.style.left=left+'px';
+}
+
+/* ---------- main distribution chart ---------- */
+function drawDist(m0){
+  var el=$('#distChart'),W=Math.max(260,el.clientWidth||600),H=W<520?290:340;
+  var m={l:12,r:46,t:30,b:58},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  var nu=m0.nu,tc=m0.tc,nc=m0.nc,tails=S.tails;
+  // Fixed axis in measurement units (depends on sigma and delta, never on n). Curves are drawn in t units and rescaled by the SE.
+  var seX=m0.se,lo=-3*S.sigma/seX,hi=(S.delta+3*S.sigma)/seX;
+  var step=Math.max(0.04,(hi-lo)/2500);
+  var f0=function(t){return pdf0(t,nu);},f1=nc<1e-9?f0:function(t){return Math.abs(t-nc)>16?0:pdf1(t,nc,nu);};
+  var peak=f0(0),curve1=[];
+  for(var t=lo;t<=hi+1e-9;t+=step){var v=f1(t);curve1.push([t,v]);if(v>peak)peak=v;}
+  var ymax=peak*1.22;
+  var X=function(t){return m.l+(t-lo)/(hi-lo)*iw;},Y=function(d){return m.t+ih-d/ymax*ih;};
+  function lineP(f,pts){return pts.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1);}).join('');}
+  function areaP(f,a,b){
+    a=Math.max(a,lo);b=Math.min(b,hi);
+    if(b-a<1e-9)return '';
+    var n=Math.max(6,Math.ceil((b-a)/step)),d='M'+X(a).toFixed(1)+','+Y(0).toFixed(1);
+    for(var i=0;i<=n;i++){var tt=a+(b-a)*i/n;d+='L'+X(tt).toFixed(1)+','+Y(f(tt)).toFixed(1);}
+    return d+'L'+X(b).toFixed(1)+','+Y(0).toFixed(1)+'Z';
+  }
+  var s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc('Sampling distributions of the t statistic under H0 and H1. Power '+pct(m0.pow)+', beta '+pct(1-m0.pow)+', alpha '+pct(S.alpha)+'.')+'">';
+  s+='<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="hatch-line" stroke-width="1.5"/></pattern></defs>';
+  var base=m.t+ih;
+  // areas: beta, power, alpha
+  if(tails===2){
+    s+='<path class="a-beta" d="'+areaP(f1,-tc,tc)+'"/>';
+    s+='<path class="a-power" d="'+areaP(f1,tc,hi)+'"/><path class="a-power" d="'+areaP(f1,lo,-tc)+'"/>';
+    s+='<path class="a-alpha" d="'+areaP(f0,tc,hi)+'"/><path class="a-alpha" d="'+areaP(f0,lo,-tc)+'"/>';
+  }else{
+    s+='<path class="a-beta" d="'+areaP(f1,lo,tc)+'"/>';
+    s+='<path class="a-power" d="'+areaP(f1,tc,hi)+'"/>';
+    s+='<path class="a-alpha" d="'+areaP(f0,tc,hi)+'"/>';
+  }
+  var c0=[];for(var u=lo;u<=hi+1e-9;u+=step)c0.push([u,f0(u)]);
+  s+='<path class="h0" d="'+lineP(f0,c0)+'"/>';
+  s+='<path class="h1" d="'+lineP(f1,curve1)+'"/>';
+  // critical lines
+  function crit(c,label,anchor){
+    if(c<lo||c>hi){
+      var right=c>hi;
+      s+='<text class="crit-t" x="'+(right?m.l+iw:m.l)+'" y="'+(m.t-12)+'" text-anchor="'+(right?'end':'start')+'">'+(right?label+' ▶':'◀ '+label)+' (off axis)</text>';
+      return;
+    }
+    s+='<line class="crit" x1="'+X(c)+'" x2="'+X(c)+'" y1="'+(m.t-6)+'" y2="'+base+'"/><text class="crit-t" x="'+X(c)+'" y="'+(m.t-12)+'" text-anchor="'+anchor+'">'+label+'</text>';
+  }
+  var cl=tc.toFixed(2);
+  if(tails===2){crit(tc,'t = '+cl,'middle');crit(-tc,'t = −'+cl,'middle');}else crit(tc,'critical t = '+cl,'middle');
+  // axis
+  s+='<line class="ax" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+base+'" y2="'+base+'"/>';
+  var se=m0.se;
+  ticks(lo*se,hi*se,iw<420?6:9).forEach(function(v){
+    var tt=v/se;
+    s+='<line class="ax" x1="'+X(tt)+'" x2="'+X(tt)+'" y1="'+base+'" y2="'+(base+5)+'"/>';
+    s+='<text class="tk" x="'+X(tt)+'" y="'+(base+19)+'" text-anchor="middle">'+sig3(v)+'</text>';
+    s+='<text class="tk2" x="'+X(tt)+'" y="'+(base+34)+'" text-anchor="middle">'+mn(+tt.toFixed(2))+'</text>';
+  });
+  s+='<text class="tk" x="'+(m.l+iw+8)+'" y="'+(base+19)+'">'+esc(P().unit)+'</text>';
+  s+='<text class="tk2" x="'+(m.l+iw+8)+'" y="'+(base+34)+'">t</text>';
+  s+='<text class="axt" x="'+(m.l+iw/2)+'" y="'+(H-6)+'" text-anchor="middle">Observed difference in means (upper row) and the matching t statistic (lower row)</text>';
+  // true means: fixed in measurement units, whatever n is
+  s+='<line x1="'+X(0)+'" x2="'+X(0)+'" y1="'+Y(peak*1.04)+'" y2="'+base+'" style="stroke:var(--ink2);stroke-width:1.25;stroke-dasharray:1 3"/>';
+  if(nc>1e-9)s+='<line x1="'+X(nc)+'" x2="'+X(nc)+'" y1="'+Y(peak*1.04)+'" y2="'+base+'" style="stroke:var(--s1);stroke-width:1.25;stroke-dasharray:1 3"/>';
+  // direct labels
+  s+='<text class="lab-h0" x="'+(X(0)-8)+'" y="'+Y(peak*1.12)+'" text-anchor="end">H₀: 0</text>';
+  s+='<text class="lab-h1" x="'+(X(nc)+8)+'" y="'+Y(peak*1.12)+'" text-anchor="start">H₁: Δ = '+fd(S.delta)+'</text>';
+  s+='<line class="guide" id="dg" x1="0" x2="0" y1="'+m.t+'" y2="'+base+'" style="display:none"/>';
+  s+='<rect id="dov" x="'+m.l+'" y="'+m.t+'" width="'+iw+'" height="'+ih+'" fill="transparent" style="touch-action:pan-y"/>';
+  s+='</svg><div class="tip" id="dtip" hidden></div>';
+  el.innerHTML=s;
+  var ov=$('#dov'),gd=$('#dg'),tip=$('#dtip');
+  function mv(ev){
+    var r=el.getBoundingClientRect(),px=Math.min(m.l+iw,Math.max(m.l,ev.clientX-r.left)),tv=lo+(px-m.l)/iw*(hi-lo);
+    var p2=betai(nu/2,0.5,nu/(nu+tv*tv)),pv=tails===2?p2:(tv>0?p2/2:1-p2/2);
+    var rej=tails===2?Math.abs(tv)>=tc:tv>=tc;
+    gd.setAttribute('x1',px);gd.setAttribute('x2',px);gd.style.display='';
+    tip.innerHTML='difference ≈ <b>'+sig3(tv*se)+' '+esc(P().unit)+'</b> · t = <b>'+mn(tv.toFixed(2))+'</b><br>p =<b>'+fmtP(pv)+'</b> ('+(tails===2?'two-sided':'one-sided')+')<br>'+(rej?'Rejects H₀ at α = '+S.alpha:'Does not reject H₀');
+    placeTip(el,tip,px);
+  }
+  ov.addEventListener('pointermove',mv);ov.addEventListener('pointerdown',mv);
+  ov.addEventListener('pointerleave',function(){gd.style.display='none';tip.hidden=true;});
+}
+
+/* ---------- generic line chart (power curves) ---------- */
+function lineChart(c){
+  var el=c.el,W=Math.max(260,el.clientWidth||320),H=236,m={l:44,r:16,t:20,b:48},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  var X=function(v){return m.l+(v-c.x0)/(c.x1-c.x0)*iw;},Y=function(v){return m.t+(1-v)*ih;};
+  var s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(c.aria)+'">';
+  [0,0.2,0.4,0.6,0.8,1].forEach(function(g){
+    s+='<line class="gl" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(g)+'" y2="'+Y(g)+'"/><text class="tk" x="'+(m.l-8)+'" y="'+(Y(g)+4)+'" text-anchor="end">'+Math.round(g*100)+'%</text>';
+  });
+  var base=m.t+ih;
+  ticks(c.x0,c.x1,iw<400?5:7).forEach(function(v){
+    s+='<line class="ax" x1="'+X(v)+'" x2="'+X(v)+'" y1="'+base+'" y2="'+(base+5)+'"/><text class="tk" x="'+X(v)+'" y="'+(base+19)+'" text-anchor="middle">'+c.fmtX(v)+'</text>';
+  });
+  s+='<line class="ax" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+base+'" y2="'+base+'"/>';
+  s+='<text class="axt" x="'+(m.l+iw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+esc(c.xTitle)+'</text>';
+  s+='<text class="tk" x="'+m.l+'" y="10">Power</text>';
+  s+='<line class="goal" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(S.target)+'" y2="'+Y(S.target)+'"/>';
+  s+='<polyline class="curve" points="'+c.pts.map(function(p){return X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1);}).join(' ')+'"/>';
+  c.marks.forEach(function(k){
+    var x=X(k.x),y=Y(k.y),anc=x>m.l+iw*0.6?'end':'start',dx=anc==='end'?-9:9,dy=k.below?20:-12;
+    if(k.kind==='now')s+='<circle cx="'+x+'" cy="'+y+'" r="5.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>';
+    else s+='<circle cx="'+x+'" cy="'+y+'" r="5.5" fill="var(--surface)" stroke="var(--s1)" stroke-width="2.25"/>';
+    s+='<text class="mk-lab" x="'+(x+dx)+'" y="'+(y+dy)+'" text-anchor="'+anc+'">'+esc(k.label)+'</text>';
+  });
+  s+='<line class="guide" id="'+c.id+'g" x1="0" x2="0" y1="'+m.t+'" y2="'+base+'" style="display:none"/>';
+  s+='<circle id="'+c.id+'d" r="4" fill="var(--ink)" cx="0" cy="0" style="display:none"/>';
+  s+='<rect id="'+c.id+'o" x="'+m.l+'" y="'+m.t+'" width="'+iw+'" height="'+ih+'" fill="transparent" style="touch-action:pan-y"/></svg><div class="tip" id="'+c.id+'t" hidden></div>';
+  el.innerHTML=s;
+  var ov=$('#'+c.id+'o'),gd=$('#'+c.id+'g'),dot=$('#'+c.id+'d'),tip=$('#'+c.id+'t');
+  function mv(ev){
+    var r=el.getBoundingClientRect(),px=Math.min(m.l+iw,Math.max(m.l,ev.clientX-r.left)),xv=c.x0+(px-m.l)/iw*(c.x1-c.x0),o=c.at(xv),x=X(o.x);
+    gd.setAttribute('x1',x);gd.setAttribute('x2',x);gd.style.display='';dot.setAttribute('cx',x);dot.setAttribute('cy',Y(o.y));dot.style.display='';
+    tip.innerHTML=o.html;placeTip(el,tip,x);
+  }
+  ov.addEventListener('pointermove',mv);ov.addEventListener('pointerdown',mv);
+  ov.addEventListener('pointerleave',function(){gd.style.display='none';dot.style.display='none';tip.hidden=true;});
+}
+
+var M={};
+function pw(n,d){return power(n,d===undefined?S.delta:d,S.sigma,S.alpha,S.tails);}
+
+function drawPowerN(){
+  var req=M.req,nmax=(req&&Number.isFinite(req))?Math.round(req*1.8):200;
+  nmax=Math.max(30,Math.min(2500,Math.max(nmax,Math.round(S.n*1.15))));
+  var pts=[],count=90,seen={};
+  for(var i=0;i<count;i++){var n=Math.round(3+(nmax-3)*i/(count-1));if(seen[n])continue;seen[n]=1;pts.push([n,pw(n)]);}
+  var marks=[{kind:'now',x:S.n,y:M.pow,label:'n = '+S.n+' · '+pct(M.pow)}];
+  if(req&&Number.isFinite(req)&&req<=nmax)marks.push({kind:'goal',x:req,y:pw(req),label:'n = '+req+' reaches '+Math.round(S.target*100)+'%',below:true});
+  lineChart({id:'cn',el:$('#chartN'),x0:3,x1:nmax,pts:pts,marks:marks,fmtX:function(v){return fmtInt(v);},xTitle:'Sample size per group, n',
+    aria:'Power as a function of sample size per group. Current power '+pct(M.pow)+' at n = '+S.n+'.',
+    at:function(x){var n=Math.max(3,Math.round(x)),p=pw(n);return {x:n,y:p,html:'n = <b>'+fmtInt(n)+'</b> per group (N = '+fmtInt(2*n)+')<br>power = <b>'+pct(p)+'</b>'};}});
+  M.tableN=pts;
+}
+function drawPowerD(){
+  var p=P(),mdeV=M.mde,x1=p.dMax;
+  if(Number.isFinite(mdeV))x1=Math.max(x1,mdeV*1.15);
+  x1=Math.min(x1,12*S.sigma);
+  var pts=[],count=70;
+  for(var i=0;i<count;i++){var d=x1*i/(count-1);pts.push([d,pw(S.n,d)]);}
+  var marks=[{kind:'now',x:S.delta,y:M.pow,label:'Δ = '+fd(S.delta)+' · '+pct(M.pow)}];
+  if(Number.isFinite(mdeV)&&mdeV>0)marks.push({kind:'goal',x:mdeV,y:S.target,label:'Δ = '+sig3(mdeV)+' reaches '+Math.round(S.target*100)+'%',below:true});
+  lineChart({id:'cd',el:$('#chartD'),x0:0,x1:x1,pts:pts,marks:marks,fmtX:function(v){return sig3(v);},xTitle:'True difference Δ ('+p.unit+')',
+    aria:'Power as a function of the true difference at n = '+S.n+' per group.',
+    at:function(x){var d=Math.max(0,x),pp=pw(S.n,d);return {x:d,y:pp,html:'Δ = <b>'+sig3(d)+' '+esc(p.unit)+'</b> (d = '+(d/S.sigma).toFixed(2)+')<br>power = <b>'+pct(pp)+'</b>'};}});
+}
+
+/* ---------- readouts, solver, levers ---------- */
+function icon(ok){
+  return ok?'<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="6.5" fill="#0ca30c"/><path d="M4 7.2l2 2 4-4.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    :'<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1.2l6.2 11H.8z" fill="#fab219"/><path d="M7 5.2v3.4" stroke="#0b0b0b" stroke-width="1.6" stroke-linecap="round"/><circle cx="7" cy="10.6" r=".9" fill="#0b0b0b"/></svg>';
+}
+function render(){
+  var nu=2*S.n-2,tc=tcrit(nu,S.alpha,S.tails),nc=(S.delta/S.sigma)*Math.sqrt(S.n/2),se=S.sigma*Math.sqrt(2/S.n);
+  var pow=pw(S.n);
+  M.nu=nu;M.tc=tc;M.nc=nc;M.se=se;M.pow=pow;
+  M.req=requiredN(S.delta,S.sigma,S.alpha,S.tails,S.target);
+  M.mde=mde(S.n,S.sigma,S.alpha,S.tails,S.target);
+  var p=P(),goalTxt=Math.round(S.target*100)+'%';
+  $('#powerV').textContent=pct(pow);
+  $('#meterFill').style.width=(pow*100)+'%';
+  $('#meterGoal').style.left='calc('+(S.target*100)+'% - 1px)';
+  var ok=pow>=S.target-1e-9;
+  $('#goalChip').innerHTML=icon(ok)+(ok?'Meets the '+goalTxt+' target':'Below the '+goalTxt+' target');
+  $('#betaV').textContent=pct(1-pow);
+  $('#alphaV').textContent=pct(S.alpha);
+  $('#critK').textContent='Critical t (df = '+nu+')';
+  $('#critV').textContent=(S.tails===2?'±':'')+tc.toFixed(2);
+  $('#seV').textContent=sig3(se)+' '+p.unit;
+  $('#lgAlpha').textContent=pct(S.alpha);$('#lgBeta').textContent=pct(1-pow);$('#lgPower').textContent=pct(pow);
+  $('#caption').textContent='Each curve shows how the observed difference would scatter across repeated experiments. The dotted lines mark the true means, 0 under H₀ and Δ under H₁, and they do not move when n changes. The axis is fixed in measurement units, so a larger n only narrows the curves (the standard error is '+sig3(se)+' '+p.unit+' here). The vertical scale is stretched so each peak fits; the area under each curve is always 100%. At very small n the far tails run off the axis. Hover or touch the chart to see the p-value and decision for any observed result.';
+  if(S.delta<=0){
+    $('#reading').innerHTML='With a true difference of zero there is nothing to detect, so the “power” equals the false-positive rate: <b>'+pct(S.alpha)+'</b> of experiments reject H₀, whatever the sample size. Raise Δ to give the test something to find.';
+  }else{
+    $('#reading').innerHTML='If the true difference is <b>'+fd(S.delta)+' '+esc(p.unit)+'</b> (d = '+(S.delta/S.sigma).toFixed(2)+'), an experiment with <b>'+S.n+' per group</b> rejects H₀ in about <b>'+pct(pow)+'</b> of repeated runs and misses the effect in '+pct(1-pow)+'. If there is truly no difference, it still rejects H₀ in '+pct(S.alpha)+' of runs. That false-positive rate is fixed by α, not by n.';
+  }
+  drawDist(M);
+  renderSolver();
+  drawPowerN();drawPowerD();
+  renderTable();
+  renderLevers();
+  renderSim();
+}
+function renderSolver(){
+  var req=M.req,tgt=Math.round(S.target*100);
+  var unit=P().unit;
+  if(req===null){
+    $('#reqN').textContent='–';$('#reqNote').textContent='With a true difference of zero no sample size reaches '+tgt+'% power.';
+    $('#reqTotal').textContent='–';$('#reqAch').textContent='–';$('#enrolNote').textContent='';
+    $('#useN').disabled=true;
+  }else if(!Number.isFinite(req)){
+    $('#reqN').textContent='>400k';$('#reqNote').textContent='The difference is too small relative to σ for any practical sample.';
+    $('#reqTotal').textContent='–';$('#reqAch').textContent='–';$('#enrolNote').textContent='';
+    $('#useN').disabled=true;
+  }else{
+    $('#reqN').textContent=fmtInt(req);
+    var gap=req-S.n;
+    $('#reqNote').textContent=gap>0?'Your current n is '+fmtInt(gap)+' short of this.':(gap===0?'Your current n is exactly this.':'Your current n is '+fmtInt(-gap)+' above this.');
+    $('#reqTotal').textContent=fmtInt(2*req);
+    $('#reqAch').textContent=pct(pw(req));
+    var enrol=Math.ceil(req/(1-S.dropout/100));
+    $('#enrolNote').textContent='Recruit '+fmtInt(enrol)+' per group ('+fmtInt(2*enrol)+' in total) so that about '+fmtInt(req)+' per group remain for the analysis.';
+    $('#useN').disabled=(gap===0);
+  }
+  var md=M.mde;
+  if(Number.isFinite(md)){
+    $('#mdeV').textContent=sig3(md)+' '+unit;
+    $('#mdeNote').textContent='d = '+(md/S.sigma).toFixed(2)+'. Smaller true differences would be detected less than '+tgt+'% of the time at n = '+S.n+' per group.';
+  }else{
+    $('#mdeV').textContent='beyond 12 σ';$('#mdeNote').textContent='';
+  }
+}
+function renderTable(){
+  var pts=M.tableN||[],rows=[],idx=[],k=8;
+  for(var i=0;i<k;i++)idx.push(Math.round(i*(pts.length-1)/(k-1)));
+  var ns=idx.map(function(i){return pts[i][0];});
+  if(ns.indexOf(S.n)<0)ns.push(S.n);
+  ns.sort(function(a,b){return a-b;});
+  var h='<tr><th>n per group</th><th>Total N</th><th>Power</th></tr>';
+  ns.forEach(function(n){h+='<tr'+(n===S.n?' class="hl"':'')+'><td>'+fmtInt(n)+(n===S.n?' (current)':'')+'</td><td>'+fmtInt(2*n)+'</td><td>'+pct(pw(n))+'</td></tr>';});
+  $('#powTable').innerHTML=h;
+}
+function renderLevers(){
+  var p=P(),items=[];
+  var base=Object.assign({},S);
+  function mk(title,desc,patch,detail){
+    var s2=norm(Object.assign({},S,patch));
+    var changed=['n','delta','sigma','alpha','tails'].some(function(k){return s2[k]!==S[k];});
+    items.push({title:title,desc:desc,patch:patch,detail:detail(s2),res:changed?power(s2.n,s2.delta,s2.sigma,s2.alpha,s2.tails):null,s2:s2});
+  }
+  mk('Double the sample size','Recruit twice as many participants per group.',{n:Math.min(5000,S.n*2)},function(s){return 'n: '+S.n+' → '+s.n+' per group';});
+  mk('Reduce variability by 30%','Tighter measurement, a more homogeneous population, or adjustment for baseline values.',{sigma:S.sigma*0.7},function(s){return 'σ: '+fd(S.sigma)+' → '+fd(s.sigma)+' '+p.unit;});
+  mk('Study a larger true difference','A higher dose, longer follow-up, or a more responsive population. This changes the question, not just the design.',{delta:S.delta*1.5},function(s){return 'Δ: '+fd(S.delta)+' → '+fd(s.delta)+' '+p.unit;});
+  var alphas=[0.001,0.01,0.05,0.1],ai=alphas.indexOf(S.alpha);
+  if(ai>0)mk('Use a stricter α','Fewer false positives, paid for with more misses.',{alpha:alphas[ai-1]},function(s){return 'α: '+S.alpha+' → '+s.alpha;});
+  else mk('Use a looser α','More power, but more false positives.',{alpha:alphas[1]},function(s){return 'α: '+S.alpha+' → '+s.alpha;});
+  if(S.tails===2)mk('Switch to a one-sided test','Needs a directional hypothesis fixed before the data are seen, and cannot detect an effect in the other direction.',{tails:1},function(){return 'two-sided → one-sided';});
+  else mk('Switch to a two-sided test','Protects against an effect in the unexpected direction.',{tails:2},function(){return 'one-sided → two-sided';});
+  var h='';
+  items.forEach(function(it,i){
+    var r='';
+    if(it.res===null)r='<span class="dn">Already at the limit of the slider range</span>';
+    else{
+      var diff=(it.res-M.pow)*100,cls=diff>=0.05?'up':'dn',sign=diff>=0?'+':'−';
+      r='<span>'+pct(M.pow)+' → '+pct(it.res)+'</span><span class="'+cls+'">'+sign+Math.abs(diff).toFixed(Math.abs(diff)<10?1:0)+' pts</span>';
+    }
+    h+='<button type="button" class="lever" data-i="'+i+'"'+(it.res===null?' disabled':'')+'><h3>'+esc(it.title)+'</h3><p class="d">'+esc(it.desc)+'</p><p class="d"><b style="font-family:var(--font-mono);font-weight:500;color:var(--ink)">'+esc(it.detail)+'</b></p><div class="r">'+r+'</div>'+(it.res===null?'':'<span class="go">Apply this change</span>')+'</button>';
+  });
+  $('#levers').innerHTML=h;
+  M.levers=items;
+}
+$('#levers').addEventListener('click',function(e){
+  var b=e.target.closest('button.lever');if(!b||b.disabled)return;
+  var it=M.levers[+b.dataset.i];if(it)setState(it.patch);
+});
+
+/* ---------- simulation ---------- */
+var sim={runs:0,sig:0,hist:[],ledger:[],last:null,sumSigDiff:0};
+function simReset(){sim.runs=0;sim.sig=0;sim.hist=[];sim.ledger=[];sim.last=null;sim.sumSigDiff=0;}
+function randn(){var u=0;while(u===0)u=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random());}
+function runExperiments(k){
+  var n=S.n,sg=S.sigma,mu=S.world==='effect'?S.delta:0,nu=2*n-2;
+  for(var r=0;r<k;r++){
+    var keep=(r===k-1),sA=0,sB=0,qA=0,qB=0,A=keep?[]:null,B=keep?[]:null;
+    for(var i=0;i<n;i++){
+      var a=randn()*sg,b=mu+randn()*sg;sA+=a;sB+=b;qA+=a*a;qB+=b*b;
+      if(keep){A.push(a);B.push(b);}
+    }
+    var mA=sA/n,mB=sB/n,vA=(qA-n*mA*mA)/(n-1),vB=(qB-n*mB*mB)/(n-1),sp2=(vA+vB)/2;
+    var diff=mB-mA,t=diff/Math.sqrt(sp2*2/n),p2=betai(nu/2,0.5,nu/(nu+t*t));
+    var pv=S.tails===2?p2:(t>0?p2/2:1-p2/2),sig=pv<S.alpha;
+    sim.runs++;if(sig){sim.sig++;sim.sumSigDiff+=diff;}
+    sim.ledger.push(sig);if(sim.ledger.length>100)sim.ledger.shift();
+    if(sim.runs<=20000)sim.hist.push(sim.sig/sim.runs);
+    if(keep){
+      sim.last={A:A,B:B,mA:mA,mB:mB,t:t,p:pv,sig:sig,diff:diff,
+        jA:A.map(function(){return Math.random()*2-1;}),jB:B.map(function(){return Math.random()*2-1;})};
+    }
+  }
+  renderSim();
+}
+['run1','run100','run1000'].forEach(function(id,i){$('#'+id).addEventListener('click',function(){runExperiments([1,100,1000][i]);});});
+$('#clearSim').addEventListener('click',function(){simReset();renderSim();});
+function wilson(k,n){
+  if(!n)return [0,1];var z=1.96,p=k/n,d=1+z*z/n,c=p+z*z/(2*n),a=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n));
+  return [(c-a)/d,(c+a)/d];
+}
+function drawStrip(){
+  var el=$('#strip'),L=sim.last;
+  if(!L){el.innerHTML='<div class="empty">Press “Run 1” to draw one experiment and see the individual measurements.</div>';return;}
+  var W=Math.max(260,el.clientWidth||320),H=300,m={l:46,r:12,t:12,b:44},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  var sg=S.sigma,mu=S.world==='effect'?S.delta:0,y0=Math.min(0,mu)-3.6*sg,y1=Math.max(0,mu)+3.6*sg;
+  var Y=function(v){return m.t+(1-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0))*ih;};
+  var xa=m.l+iw*0.27,xb=m.l+iw*0.73,jw=iw*0.15,r=S.n>150?1.8:(S.n>60?2.6:3.6);
+  var s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc('Individual measurements for the latest simulated experiment. Control mean '+sig3(L.mA)+', treatment mean '+sig3(L.mB)+' '+P().unit+'.')+'">';
+  ticks(y0,y1,5).forEach(function(v){s+='<line class="gl" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text class="tk" x="'+(m.l-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+sig3(v)+'</text>';});
+  s+='<line class="gl" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" style="stroke:var(--axis)"/>';
+  L.A.forEach(function(v,i){s+='<circle class="pt-c" cx="'+(xa+L.jA[i]*jw).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+r+'"/>';});
+  L.B.forEach(function(v,i){s+='<circle class="pt-t" cx="'+(xb+L.jB[i]*jw).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+r+'"/>';});
+  s+='<line class="mean-c" x1="'+(xa-jw*1.1)+'" x2="'+(xa+jw*1.1)+'" y1="'+Y(L.mA)+'" y2="'+Y(L.mA)+'"/><line class="mean-t" x1="'+(xb-jw*1.1)+'" x2="'+(xb+jw*1.1)+'" y1="'+Y(L.mB)+'" y2="'+Y(L.mB)+'"/>';
+  s+='<text class="tk" x="'+xa+'" y="'+(H-22)+'" text-anchor="middle">Control</text><text class="tk" x="'+xb+'" y="'+(H-22)+'" text-anchor="middle">Treatment</text>';
+  s+='<text class="tk2" x="'+xa+'" y="'+(H-8)+'" text-anchor="middle">mean '+sig3(L.mA)+'</text><text class="tk2" x="'+xb+'" y="'+(H-8)+'" text-anchor="middle">mean '+sig3(L.mB)+'</text>';
+  s+='</svg>';
+  el.innerHTML=s;
+}
+function drawConv(){
+  var el=$('#conv');
+  if(sim.runs<2){el.innerHTML='';return;}
+  var W=Math.max(260,el.clientWidth||320),H=190,m={l:44,r:16,t:22,b:40},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  var nmax=Math.max(10,Math.min(sim.hist.length,20000)),lx=Math.log(nmax);
+  var X=function(n){return m.l+Math.log(n)/lx*iw;},Y=function(v){return m.t+(1-v)*ih;};
+  var theory=S.world==='effect'?M.pow:S.alpha;
+  var s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Running share of significant experiments compared with the theoretical value.">';
+  [0,0.25,0.5,0.75,1].forEach(function(g){s+='<line class="gl" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(g)+'" y2="'+Y(g)+'"/><text class="tk" x="'+(m.l-8)+'" y="'+(Y(g)+4)+'" text-anchor="end">'+Math.round(g*100)+'%</text>';});
+  [1,10,100,1000,10000].filter(function(v){return v<=nmax;}).forEach(function(v){s+='<line class="ax" x1="'+X(v)+'" x2="'+X(v)+'" y1="'+(m.t+ih)+'" y2="'+(m.t+ih+5)+'"/><text class="tk" x="'+X(v)+'" y="'+(m.t+ih+19)+'" text-anchor="middle">'+fmtInt(v)+'</text>';});
+  s+='<line class="ax" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+(m.t+ih)+'" y2="'+(m.t+ih)+'"/>';
+  s+='<text class="axt" x="'+(m.l+iw/2)+'" y="'+(H-5)+'" text-anchor="middle">Experiments run (log scale)</text>';
+  s+='<text class="tk" x="'+m.l+'" y="11">Running share significant</text>';
+  s+='<line class="goal" x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(theory)+'" y2="'+Y(theory)+'"/>';
+  var step=Math.max(1,Math.floor(nmax/400)),pts=[];
+  for(var i=1;i<=nmax;i+=step)pts.push(X(i).toFixed(1)+','+Y(sim.hist[i-1]).toFixed(1));
+  pts.push(X(nmax).toFixed(1)+','+Y(sim.hist[nmax-1]).toFixed(1));
+  s+='<polyline class="curve" points="'+pts.join(' ')+'"/>';
+  s+='<circle cx="'+X(nmax)+'" cy="'+Y(sim.hist[nmax-1])+'" r="4.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>';
+  s+='<text class="mk-lab" x="'+(m.l+iw)+'" y="'+(Y(theory)+(theory>0.5?16:-6))+'" text-anchor="end">'+(S.world==='effect'?'theoretical power ':'α ')+pct(theory)+'</text>';
+  s+='</svg>';
+  el.innerHTML=s;
+}
+function renderSim(){
+  var L=sim.last,p=P();
+  if(!L)$('#runLine').innerHTML='<span class="simnote">No experiment yet.</span>';
+  else $('#runLine').innerHTML='Difference in means <b>'+sig3(L.diff)+' '+esc(p.unit)+'</b> · t = <b>'+mn(L.t.toFixed(2))+'</b> · p = <b>'+fmtP(L.p)+'</b><br>'+(L.sig?'Significant at α = '+S.alpha+'. H₀ rejected.':'Not significant at α = '+S.alpha+'. H₀ not rejected.')+(S.world==='effect'&&!L.sig?' This is a Type II error: a real difference was missed.':'')+(S.world==='null'&&L.sig?' This is a Type I error: a false positive.':'');
+  drawStrip();
+  var cells='';
+  for(var i=0;i<100;i++){var v=sim.ledger[i];cells+='<i class="'+(v===undefined?'':(v?'y':'n'))+'"></i>';}
+  $('#ledger').innerHTML=cells;
+  var T=$('#tally');
+  if(!sim.runs){T.innerHTML='<span class="simnote">Run some experiments to build the tally.</span>';}
+  else{
+    var rate=sim.sig/sim.runs,ci=wilson(sim.sig,sim.runs),th=S.world==='effect'?M.pow:S.alpha;
+    var h='<span><b>'+fmtInt(sim.sig)+'</b> of <b>'+fmtInt(sim.runs)+'</b> experiments significant (<b>'+pct(rate)+'</b>)</span>';
+    h+='<span>Theory: <b>'+pct(th)+'</b> '+(S.world==='effect'?'(power)':'(the false-positive rate, α)')+(sim.runs>=20?'. The 95% interval for the simulated share is '+pct(ci[0])+' to '+pct(ci[1])+'.':'. Too few runs for a stable estimate.')+'</span>';
+    if(S.world==='effect'&&sim.sig>=5&&S.delta>0){
+      var avg=sim.sumSigDiff/sim.sig;
+      h+='<span>Among the significant experiments, the average estimated difference was <b>'+sig3(avg)+' '+esc(p.unit)+'</b> against a true <b>'+fd(S.delta)+' '+esc(p.unit)+'</b>, which is '+(avg/S.delta).toFixed(2)+' times the truth.</span>';
+    }
+    T.innerHTML=h;
+  }
+  drawConv();
+}
+
+/* ---------- resize ---------- */
+var raf=0;
+function redraw(){cancelAnimationFrame(raf);raf=requestAnimationFrame(function(){if(M.nu){drawDist(M);drawPowerN();drawPowerD();drawStrip();drawConv();}});}
+if(window.ResizeObserver){
+  var ro=new ResizeObserver(redraw);
+  ['#distChart','#chartN','#chartD','#strip','#conv'].forEach(function(s){ro.observe($(s));});
+}
+window.addEventListener('resize',redraw);
+
+/* ---------- boot ---------- */
+sel.dataset.last='';
+setState({preset:'bp'});
+})();
+</script>
+
+</body></html>
